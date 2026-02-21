@@ -1,6 +1,7 @@
 const express = require("express");
-const ytdl = require("ytdl-core");
 const cors = require("cors");
+const ytdl = require("ytdl-core");
+const { exec } = require("child_process");
 
 const app = express();
 app.use(cors());
@@ -9,29 +10,40 @@ app.get("/", (req,res)=>{
   res.send("YT Server Running 🚀");
 });
 
-// Video info (quality list)
-app.get("/info", async (req,res)=>{
+// 🔹 Get MP4 Formats (Quality List)
+app.get("/formats", async (req,res)=>{
   try{
     const info = await ytdl.getInfo(req.query.url);
-    res.json(info.formats);
+    const formats = ytdl.filterFormats(info.formats, 'videoandaudio')
+      .map(f => ({
+        quality: f.qualityLabel,
+        itag: f.itag
+      }));
+    res.json(formats);
   }catch(err){
-    res.status(500).send("Error fetching info");
+    res.status(500).json({error:"Failed"});
   }
 });
 
-// MP4 Download
-app.get("/mp4", (req,res)=>{
+// 🔹 Download Selected Quality
+app.get("/download", (req,res)=>{
   const url = req.query.url;
+  const itag = req.query.itag;
+
   res.header("Content-Disposition","attachment; filename=video.mp4");
-  ytdl(url,{quality:"highestvideo"}).pipe(res);
+
+  ytdl(url,{ quality: itag }).pipe(res);
 });
 
-// MP3 Download
-app.get("/mp3", (req,res)=>{
+// 🔹 Playlist Download (ZIP)
+app.get("/playlist", (req,res)=>{
   const url = req.query.url;
-  res.header("Content-Disposition","attachment; filename=audio.mp3");
-  ytdl(url,{filter:"audioonly"}).pipe(res);
+
+  exec(`yt-dlp -f mp4 -o "%(title)s.%(ext)s" ${url}`, (err)=>{
+    if(err) return res.send("Error downloading playlist");
+    res.send("Playlist Download Started on Server");
+  });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, ()=> console.log("Server Started"));
+app.listen(PORT, ()=> console.log("Server Running"));app.listen(PORT, ()=> console.log("Server Started"));
