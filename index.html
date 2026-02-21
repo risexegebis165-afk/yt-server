@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Pro Downloader</title>
+    <style>
+        body { font-family: sans-serif; background: #0f172a; color: #fff; text-align: center; padding: 20px; }
+        .header { background: #ff0000; padding: 15px; border-radius: 10px; font-weight: bold; margin-bottom: 20px; }
+        input { width: 90%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: #fff; }
+        button { background: #ff0000; color: #fff; border: none; padding: 12px 20px; border-radius: 8px; margin-top: 10px; cursor: pointer; font-weight: bold; }
+        button:disabled { background: #475569; }
+        #status { margin: 15px; color: #fbbf24; font-size: 14px; }
+        .card { background: #1e293b; padding: 20px; border-radius: 15px; display: none; margin-top: 20px; border: 1px solid #334155; }
+        img { width: 100%; border-radius: 10px; max-width: 300px; }
+        select { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="header">🎬 YouTube Pro Downloader</div>
+    <input type="text" id="url" placeholder="Paste YouTube link here...">
+    <br>
+    <button id="btn" onclick="fetchInfo()">Get Video Data</button>
+    <div id="status"></div>
+
+    <div class="card" id="card">
+        <h3 id="title"></h3>
+        <img id="thumb" src="">
+        <select id="quality"></select>
+        <button onclick="download('mp4')">Download MP4</button>
+        <button onclick="download('mp3')" style="background:#10b981;">Download MP3</button>
+    </div>
+
+<script>
+    const SERVER = "https://yt-server-pe6s.onrender.com"; 
+
+    async function fetchInfo() {
+        const url = document.getElementById('url').value;
+        const status = document.getElementById('status');
+        const btn = document.getElementById('btn');
+        const card = document.getElementById('card');
+
+        if(!url) return alert("Please paste a link!");
+
+        status.innerText = "⏳ Server is waking up... Please wait 30 seconds.";
+        btn.disabled = true;
+        card.style.display = "none";
+
+        try {
+            const res = await fetch(`${SERVER}/info?url=${encodeURIComponent(url)}`);
+            const data = await res.json();
+            if(data.error) throw new Error();
+
+            document.getElementById('title').innerText = data.title;
+            document.getElementById('thumb').src = data.thumbnail;
+            const select = document.getElementById('quality');
+            
+            // ভিডিও কোয়ালিটি অপশন সেট করা
+            select.innerHTML = data.videos.map(v => `<option value="${v.itag}">${v.quality}</option>`).join('');
+            
+            card.style.display = "block";
+            status.innerText = "✅ Video Found!";
+        } catch (e) {
+            status.innerText = "❌ Connection failed. Try again (Server was sleeping).";
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function download(type) {
+        const url = document.getElementById('url').value;
+        const itag = document.getElementById('quality').value;
+        // সরাসরি সার্ভার লিঙ্কে পাঠিয়ে ডাউনলোড শুরু করা
+        window.location.href = `${SERVER}/${type}?url=${encodeURIComponent(url)}&itag=${itag}`;
+    }
+</script>
+</body>
+</html>
