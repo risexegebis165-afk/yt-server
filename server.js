@@ -7,7 +7,7 @@ app.use(cors());
 
 // সার্ভার সচল আছে কি না দেখার জন্য
 app.get('/', (req, res) => {
-    res.send('Server is Live! 🚀');
+    res.sendFile(__dirname + '/index.html');
 });
 
 // ভিডিওর তথ্য পাওয়ার জন্য
