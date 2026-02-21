@@ -1,55 +1,56 @@
 const express = require('express');
 const cors = require('cors');
-const ytdl = require('@distube/ytdl-core'); 
+const ytdl = require('@distube/ytdl-core');
+const path = require('path');
 const app = express();
 
+// ১. ব্রাউজারের কানেকশন ব্লক (CORS) ঠিক করার জন্য
 app.use(cors());
+app.use(express.json());
 
-// সার্ভার সচল আছে কি না দেখার জন্য
+// ২. আপনার ডিজাইন করা index.html পেজটি দেখানোর জন্য
 app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/index.html');
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// ভিডিওর তথ্য পাওয়ার জন্য
+// ৩. ভিডিওর তথ্য (Title, Thumbnail, Quality) বের করার জন্য
 app.get('/info', async (req, res) => {
     const videoURL = req.query.url;
+    if (!videoURL) return res.status(400).json({ error: "URL is required" });
+
     try {
         const info = await ytdl.getInfo(videoURL);
-        const formats = ytdl.filterFormats(info.formats, 'audioandvideo');
-        const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
-
+        // ভিডিও এবং অডিও একসাথে আছে এমন কোয়ালিটি ফিল্টার করা
+        const formats = ytdl.filterFormats(info.formats, 'videoandaudio');
+        
         res.json({
             title: info.videoDetails.title,
             thumbnail: info.videoDetails.thumbnails[0].url,
-            videos: formats.map(f => ({ itag: f.itag, quality: f.qualityLabel, container: f.container })),
-            audios: audioFormats.map(f => ({ itag: f.itag, bitrate: f.audioBitrate + 'kbps', container: f.container }))
+            videos: formats.map(f => ({
+                quality: f.qualityLabel || 'Auto',
+                itag: f.itag,
+                container: f.container
+            }))
         });
     } catch (err) {
-        res.status(500).json({ error: "Failed to fetch video info" });
+        console.error(err);
+        res.status(500).json({ error: "Invalid YouTube URL or Server Busy" });
     }
 });
 
-// MP4 ডাউনলোডের জন্য (Fixes ERR_HTTP_RESPONSE_CODE_FAILURE)
-app.get('/mp4', async (req, res) => {
+// ৪. সরাসরি ফাইল ডাউনলোড করার জন্য রুট
+app.get('/download', async (req, res) => {
     const { url, itag } = req.query;
     try {
         res.header('Content-Disposition', 'attachment; filename="video.mp4"');
         ytdl(url, { format: itag }).pipe(res);
     } catch (err) {
-        res.status(500).send("Download Failed");
+        res.status(500).send("Download failed");
     }
 });
 
-// MP3 ডাউনলোডের জন্য
-app.get('/mp3', async (req, res) => {
-    const { url, itag } = req.query;
-    try {
-        res.header('Content-Disposition', 'attachment; filename="audio.mp3"');
-        ytdl(url, { format: itag, filter: 'audioonly' }).pipe(res);
-    } catch (err) {
-        res.status(500).send("Download Failed");
-    }
+// ৫. সার্ভার পোর্ট সেটআপ
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server Running on port ${PORT}`));
